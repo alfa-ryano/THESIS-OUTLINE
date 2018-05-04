@@ -2,6 +2,9 @@
 %\linespread{1.5}
 %\usepackage{lineno}
 %\linenumbers
+\usepackage{lscape}
+\usepackage{enumitem}
+\setlist[enumerate]{label*=\arabic*.}
 \usepackage{makecell}
 \usepackage{kantlipsum}
 \usepackage{enumitem}
@@ -120,20 +123,20 @@ United Kingdom\\
 
 \begin{abstract}
 \addcontentsline{toc}{chapter}{Abstract}
-Most of the models in Model-Driven Engineering are persisted in state-based formats. However, this type of persistence is problematic when it comes to detecting changes in large-scale models. As an alternative, this work proposes a change-based approach that involves persisting the full sequence of changes made to models. Persisting models in a change-based format has the potential to deliver benefits over state-based persistence, such as the ability to detect changes much faster and more precisely, which can then yield positive knock-on effects on helping developers compare and merge models in collaborative modelling environments. Nevertheless, change-based persistence also comes with downsides, such as ever-growing model file sizes and increased model loading time. So far, an initial change-based persistence format for EMF models has been developed, and an algorithm to reduce the loading time of change-based models has been proposed. Based on this work's interim results, the change-based approach persists changes in models faster than its state-based counterpart, and the proposed algorithm has successfully loaded change-based models faster than loading the models naively. The initial implementation has been presented in a workshop, and the proposed algorithm has been submitted to a conference and is currently is under review. A research plan to complete this work in the next two years is also explained in this report.
+Most of the models in Model-Driven Engineering are persisted in state-based formats. However, this type of persistence is problematic when it comes to detecting changes in large-scale models. As an alternative, this work proposes a change-based approach that involves persisting the full sequence of changes made to models. Persisting models in a change-based format have the potential to deliver benefits over state-based persistence, such as the ability to detect changes much faster and more precisely, which can then yield positive knock-on effects on helping developers compare and merge models in collaborative modelling environments. Nevertheless, change-based persistence also comes with downsides, such as ever-growing model file sizes and increased model loading time. So far, an initial change-based persistence implementation for EMF models has been developed, and two approaches to optimised the loading of change-based models have been proposed: (1) an algorithm to ignore superseded events and (2) hybrid model persistence. Based on this work's interim results, the change-based approach persists changes in models faster than its state-based counterpart, the proposed algorithm has successfully loaded change-based models faster than loading the models naively but it is still outperformed by loading models from state-based representation, and loading models from the hybrid model persistence only experiences a slight slowdown. The initial implementation has been presented at a workshop, the proposed algorithm will be presented at a conference, and the hybrid model persistence is currently under review. A research plan to complete this work in the next one and a half years is also presented in this report.
 \end{abstract}
 
 \tableofcontents
 \addcontentsline{toc}{chapter}{Contents}
 
-\listoffigures
-\newpage
+%\listoffigures
+%\newpage
 
 \listoftables
 \newpage
 
-\lstlistoflistings
-\newpage
+%\lstlistoflistings
+%\newpage
 
 \chapter{Introduction}
 \label{ch:introduction}
@@ -145,11 +148,11 @@ Most of the models in the context of Model-Driven Engineering are persisted in s
 
 As an alternative to state-based persistence, this work proposes that a model can also be persisted in a change-based format, which persists the full sequence of \emph{changes} made to the model instead. The concept of change-based persistence is not new and has been used in persisting changes to software, object-oriented databases, and hierarchical documents \cite{DBLP:journals/entcs/RobbesL07,DBLP:conf/sde/LippeO92,DBLP:conf/caise/IgnatN05}. The change-based approach can improve detecting differences more precisely at the semantic level -- that is by providing finer-granularity information (e.g. types of changes, the order of the changes, elements that were changed, previous values, etc.) -- and therefore provide support to resolve them \cite{mens2002state}. The ordered nature of change-based persistence means that changes made to a model can be identified sequentially without having to explore and compare all elements of the model and its previous version. Based on these arguments, this work proposes change-based persistence as an alternative approach to state-based persistence for models conforming to 3-layer metamodelling architectures such as EMF and MOF. Persisting models in change-based format will bring a number of envisioned benefits over state-based persistence, such as the ability to detect changes much faster and more precisely, which can then have positive knock-on effects on helping developers compare and merge models in collaborative modelling environments. 
 
-Nevertheless, change-based persistence also comes with downsides, such as ever-growing model files and increased model loading time. A model that is modified frequently will increase considerably in file size since every change is added to the file. The increased file size (proportional to the number of persisted changes) will increase the loading time of the model since all changes have to be replayed to reconstruct the model's eventual state. These downsides have to be mitigated to enable the practical adoption of change-based persistence. One approach to reducing the file size of change-based models is by removing changes that do not affect the eventual state of the model. For the increased loading time, it can be mitigated by ignoring -- i.e. not replaying -- changes that are cancelled out by later changes or employing change-based and state-based persistence side-by-side so that the benefits of state-based persistence on loading time can be obtained.   
+Nevertheless, change-based persistence also comes with downsides, such as ever-growing model files and increased model loading time. A model that is frequently modified will increase considerably in file size since every change is added to the file. The increased file size (proportional to the number of persisted changes) will increase the loading time of the model since all changes have to be replayed to reconstruct the model's eventual state. These downsides have to be mitigated to enable the practical adoption of change-based persistence. One approach to reducing the file size of change-based models is by removing changes that do not affect the eventual state of the model. For the increased loading time, it can be mitigated by ignoring -- i.e. not replaying -- changes that are cancelled out by later changes or employing change-based and state-based persistence side-by-side so that the benefits of state-based persistence on loading time can be obtained.   
 
 \section{Research Questions}
 \label{sec:research_questions}
-The hypothesis of this work is that, \textbf{``Change-based persistence reduces the execution time of model change-detection, model comparison, and model merging for large models compared to their execution time in state-based persistence, with acceptable trade-offs on loading and persisting time, memory footprint, and storage space consumption''}. The execution time is the time required to complete the processes (e.g. change-detection, model comparison, model merging, or persisting changes). Model change-detection is identifying changed elements of a model compared to its previous version/ancestor while model comparison is finding the differences between two models that come from the same ancestor. Model merging is reconciling two models that come from the same ancestor and merge them to produce a new model. Using the term "large models" we refer to models with more than 1M elements, consistently with \cite{daniel2016neoemf,pagan2011morsa}. Model load time is the amount of time required to load a model into memory. Persisting changes is saving changes made to a model into a persistent representation (e.g. a file). For state-based models, this requires saving the entire model. Memory footprints are the sizes of memory used to execute the processes. Disk space consumption is the amount of storage consumed by the persistence.  
+The hypothesis of this work is that \textbf{``Change-based persistence reduces the execution time of model change-detection, model comparison, and model merging for large models compared to their execution time in state-based persistence, with acceptable trade-offs on loading and persisting time, memory footprint, and storage space consumption''}. The execution time is the time required to complete the processes (e.g. change-detection, model comparison, model merging, or persisting changes). Model change-detection is identifying changed elements of a model compared to its previous version/ancestor while the model comparison is finding the differences between two models that come from the same ancestor. Model merging is reconciling two models that come from the same ancestor and merge them to produce a new model. Using the term ``large models'' we refer to models with more than 1M elements, consistently with \cite{daniel2016neoemf,pagan2011morsa}. Model load time is the amount of time required to load a model into memory. Persisting changes is saving changes made to a model into a persistent representation (e.g. a file). For state-based models, this requires saving the entire model. Memory footprints are the sizes of memory used to execute the processes. Disk space consumption is the amount of storage consumed by the persistence.  
 
 To assess the validity of the hypothesis, this work aims to answer the following research questions: 
 \begin{enumerate} 
@@ -204,222 +207,254 @@ All prototypes in this research will be developed on top of Eclipse Modelling Fr
 
 \chapter{Thesis Structure}
 \label{sec:Thesis Structure}
-
-- Description of the purpose and contents of the chapter
-- Why this is the appropriate place for this chapter?
-- What research has been completed for this chapter?
-- What has been written for this chapter?
-- What material has been included in a publication? Or Publication related to this chapter?
-- How to complete the outstanding work: research, review, and writing?
+This section provides the description of the planned thesis structure. Each subsection corresponds to a chapter in the thesis report and describes the purpose and contents of the chapter. Some of the contents have been discussed in this research's progress report and written papers, and they will be transferred to the thesis report with proper adjustments. The time frame for each chapter is presented in more detail in Chapter \ref{ch:plan}.
+%- Description of the purpose and contents of the chapter
+%- Why this is the appropriate place for this chapter?
+%- What research has been completed for this chapter?
+%- What has been written for this chapter?
+%- What material has been included in a publication? Or Publication related to this chapter?
+%- How to complete the outstanding work: research, review, and writing?
 
 \section{Chapter 1: Introduction}
 \label{sec:chapter_1_introduction_plan}
-\begin{enumerate}
-\setlength\itemsep{0pt}
-\item Background.
-\item Research Questions.
-\item  Research Objectives.
-\item  Research Outputs.
-\item  Research Scope.
-\end{enumerate}
+This chapter will present the motivation and purpose of this research. It will comprise the (1) background of the research as well as the (2) research hypothesis, (3) research questions, (4) research objectives, (5) research outputs, and (6) research scope. All of these contents have been defined in the Progress Report and will be transferred to the Thesis Report with some adjustments. 
+
+%\begin{enumerate}
+%\setlength\itemsep{0pt}
+%\item Background.
+%\item Hypothesis.
+%\item Research Questions.
+%\item  Research Objectives.
+%\item  Research Outputs.
+%\item  Research Scope.
+%\end{enumerate}
 
 \section{Chapter 2: Literature Review}
 \label{sec:chapter_2_literature_review_plan}
+This chapter will summarise work related change-based persistence and comparison, critically asses the advantages and disadvantages of current approaches, and seek the opportunity to contribute novel contribution to the field. The chapter will comprise (1) change-based approach in software engineering, (2) change-based model persistence, (3) state-based model persistence, (4) text-based comparison and merging, (5) state-based model comparison and merging, and (6) change-based model comparison and merging. Most of these contents have been discussed briefly in the Progress Report. However, text-based comparison, state-based model comparison, and change-based model comparison and merging need more literature review and deeper analysis to support defining a new approach for change-based model comparison and merging. The ongoing literature review is estimated will take 2 weeks to complete. 
 
-\begin{enumerate}
-\setlength\itemsep{0pt}
-\item Change-based approach in software engineering.
-\item Change-based model persistence (including benefits and drawbacks).
-\item State-based model persistence (including benefits and drawbacks).
-\item Text comparison and merging.
-\item State-based model comparison and merging.
-\item Change-based model comparison and merging.
-\end{enumerate}
+%\begin{enumerate}
+%\setlength\itemsep{0pt}
+%\item Change-based approach in software engineering.
+%\item Change-based model persistence (including benefits and drawbacks).
+%\item State-based model persistence (including benefits and drawbacks).
+%\item Text-based comparison and merging.
+%\item State-based model comparison and merging.
+%\item Change-based model comparison and merging.
+%\end{enumerate}
 
 \section{Chapter 3: Change-based Model Persistence}
 \label{sec:chapter_3_Change-based_model_ersistence_plan}
+This chapter will present the concept of change-based model persistence and its core implementation. The chapter will comprise (1) the concept of change-based model persistence, (2) the example of the concept, (3) the design of the core implementation, and (4) the example of the implementation's output. These contents have been published in a workshop \cite{DBLP:conf/models/YohannisKP17}.
 
-\begin{enumerate}
-\setlength\itemsep{0pt}
-\item Concept of Change-based Model Persistence.
-\item Example.
-\item Implementation.
-\item Implementation example.
-\end{enumerate}
+%\begin{enumerate}
+%\setlength\itemsep{0pt}
+%\item Concept of Change-based Model Persistence.
+%\item Example.
+%\item Implementation.
+%\item Implementation example.
+%\end{enumerate}
 
 \section{Chapter 4: Optimised Loading of Change-based Model Persistence}
 \label{sec:chapter_4_optimised_loading_change_based_model_persistence}
+This chapter will present the optimised loading of change-based model persistence along with its implementation and evaluation. An optimisation is required to load a change-based model since the cost for replaying all persisted changes to construct the eventual state of the model is expensive. The chapter will comprise (1) introduction of the problem, (2) the optimisation approach and its implementation, (3) evaluation, (4) discussion, and (5) conclusions. The contents of this chapter will be presented at a conference \cite{yohannis2018towards}. 
 
-\begin{enumerate}
-\setlength\itemsep{0pt}
-\item Introduction.
-\item The Optimisation Approach.
-\item Evaluation and Results.
-\item Discussion.
-\item Conclusions.
-\end{enumerate}
+%\begin{enumerate}
+%\setlength\itemsep{0pt}
+%\item Introduction.
+%\item The Optimisation Approach.
+%\item Evaluation.
+%\item Discussion.
+%\item Conclusions.
+%\end{enumerate}
 
 \section{Chapter 5: Hybrid Model Persistence}
 \label{sec:chapter_5_hybrid_model_persistence}
+This chapter will present the hybrid model persistence and also its implementation and evaluation. A hybrid approach is recommended since the optimised loading approach proposed in Section \ref{sec:chapter_4_optimised_loading_change_based_model_persistence} can only reduce the loading time of a change-based model up to around 50\% (compared to the original loading approach), while loading the same model from a state-based persistence only takes less than 10\% of the original loading approach. The chapter will comprise (1) introduction, (2) the hybrid model persistence approach and its implementation, (3) evaluation and results, (4) discussion, and (5) conclusions. The contents of this chapter have been submitted to a conference \cite{yohannis2018hybrid} and are under review. 
 
-\begin{enumerate}
-\setlength\itemsep{0pt}
-\item Introduction.
-\item The Hybrid Model Persistence Approach.
-\item Evaluation and Results.
-\item Discussion.
-\item Conclusions.
-\end{enumerate}
+%\begin{enumerate}
+%\setlength\itemsep{0pt}
+%\item Introduction.
+%\item The Hybrid Model Persistence Approach.
+%\item Evaluation and Results.
+%\item Discussion.
+%\item Conclusions.
+%\end{enumerate}
 
 \section{Chapter 6: Change-based Model Comparison}
 \label{sec:chapter_6_change_based_model_comparison}
+This chapter will present a change-based model comparison with its implementation and evaluation. Ideally, the idea of change-based persistence should bring benefits to model processing, and one notable advantage of change-based persistence is that it provides support for faster model comparison. It can speed-up model comparison because the information required to identify changes is already contained in the models' representation. This chapter is dedicated to present the investigation of the premise. The chapter will comprise (1) introduction, (2) change-based model comparison approach, (4) evaluation, (5) discussion, and (6) conclusions. These contents are planned to be submitted to a conference. The publication of this chapter will join the Chapter 7's publication. 
 
-\begin{enumerate}
-\setlength\itemsep{0pt}
-\item Introduction.
-\item Comparison between two sequential versions of a model.
-\item Comparison between two parallel versions of a model. 
-\item Evaluation and results.
-\item Discussion.
-\item Conclusions.
-\end{enumerate}
+%\begin{enumerate}
+%\setlength\itemsep{0pt}
+%\item Introduction.
+%\item Comparison between two sequential versions of a model.
+%\item Comparison between two parallel versions of a model. 
+%\item Detecting conflicts and dependency between events.
+%\item Evaluation and results.
+%\item Discussion.
+%\item Conclusions.
+%\end{enumerate}
 
 \section{Chapter 7: Change-based Model Merging}
 \label{sec:chapter_7_change_based_model_Merging}
+This chapter will present change-based model merging including its implementation and evaluation. After identifying the differences between two versions of a change-based model, there is a need to reconcile all the differences into a new version of the model. Thus, conflicts between the two versions have to be identified and resolved -- using predefined rules or based on users' decisions, and by then merging steps can be determined to merge the two versions. The chapter will comprise (1) introduction, (2) change-based model merging approach, (4) evaluation, (5) discussion, and (6) conclusions. The contents of this Chapter, together with Chapter 6, are planned to be published in a conference. 
 
-\begin{enumerate}
-\setlength\itemsep{0pt}
-\item Introduction.
-\item Merging between two sequential versions of a model.
-\item Merging between two parallel versions of a model. 
-\item Detecting conflicts and dependency between events.
-\item One-way (all-right-to-left or all-left-to-right) and two-way merging.
-\item Automatic and user-defined merging strategies. 
-\item Evaluation and results.
-\item Discussion.
-\item Conclusions.
-\end{enumerate}
+%\begin{enumerate}
+%\setlength\itemsep{0pt}
+%\item Introduction.
+%\item Merging between two sequential versions of a model.
+%\item Merging between two parallel versions of a model. 
+%\item One-way (all-right-to-left or all-left-to-right) and two-way merging.
+%\item Automatic and user-defined merging strategies. 
+%\item Evaluation and results.
+%\item Discussion.
+%\item Conclusions.
+%\end{enumerate}
 
 \section{Chapter 8: Change-based Model Compression}
 \label{sec:chapter_8_change_based_model_compression}
+This chapter will present the change-based model compression approach together with its implementation and evaluation. Compression is required since the size of a change-based model representation is ever-growing to reduce storage space usage. Considering the limited time of this research (the research is expected to end by the end of December 2018), this section is planned to be dropped, but it will be carried on if there is a feasible time frame to execute the topic. The optimisation approach in Section \ref{sec:chapter_4_optimised_loading_change_based_model_persistence} can be used as a basis for the compression thus it is expected it can speed up the investigation of the topic. The chapter will comprise (1) introduction, (2) the change-based model compression approach and its implementation, (3) evaluation and results, (4) discussion, and (5) conclusions. This chapter is planned to be published in a workshop. 
 
-\begin{enumerate}
-    \setlength\itemsep{0pt}
-    \item Introduction.
-    \item The Compression Approach.
-    \item Evaluation and Results.
-    \item Discussion.
-    \item Conclusions.
-\end{enumerate}
+%\begin{enumerate}
+%    \setlength\itemsep{0pt}
+%    \item Introduction.
+%    \item The Compression Approach.
+%    \item Evaluation and Results.
+%    \item Discussion.
+%    \item Conclusions.
+%\end{enumerate}
 
 \section{Chapter 9: Conclusions and Future Work}
 \label{sec:chapter_9_conclusions}
+This chapter will present the conclusions of this research as well as the future work. 
+
+%\begin{enumerate}
+%    \setlength\itemsep{0pt}
+%\item Conclusions from every chapter.
+%\item Future work.
+%\end{enumerate}
+
+\chapter{Plan}
+\label{ch:plan}
+This Chapter presents the outstanding tasks for each chapter in the thesis report and the estimated time to complete the tasks. The timetable for the remaining tasks of this research can be seen in Table \ref{table:timetable}.
 
 \begin{enumerate}
     \setlength\itemsep{0pt}
-\item Conclusions from every chapter.
-\item Future work.
+    \item \textbf{Chapter 1: Introduction}
+    \begin{enumerate}
+        \item \textit{Writing Up}
+        \begin{enumerate}
+            \item Transfer this chapter to the thesis report. (estimated time: 5 days)
+        \end{enumerate}
+    \end{enumerate}
+    \item \textbf{Chapter 2: Literature Review}
+    \begin{enumerate}
+        \item \textit{Review Work}
+        \begin{enumerate}
+            \item Review related work on the text-based comparison and merging, state-based model comparison and merging, and change-based model  comparison and merging. (10 days)
+        \end{enumerate}
+        \item \textit{Writing Up}
+        \begin{enumerate}
+            \item Transfer the literature review to the thesis report. (5 days)
+        \end{enumerate}
+    \end{enumerate}
+    \item \textbf{Chapter 3: Change-based Model Persistence}
+    \begin{enumerate}
+        \item \textit{Writing Up}
+        \begin{enumerate}
+            \item Transfer the related written paper to the thesis report. (5 days)
+        \end{enumerate}
+    \end{enumerate}
+    \item \textbf{Chapter 4: Optimised Loading of Change-based Model Persistence}
+    \begin{enumerate}
+        \item \textit{Writing Up}
+        \begin{enumerate}
+            \item Transfer the related written paper to the thesis report. (5 days)
+        \end{enumerate}
+    \end{enumerate}
+    \item \textbf{Chapter 5: Hybrid Model Persistence}
+    \begin{enumerate}
+        \item \textit{Writing Up}
+        \begin{enumerate}
+            \item Transfer the related paper to the thesis report. (5 days)
+        \end{enumerate}
+    \end{enumerate}
+    \item \textbf{Chapter 6: Change-based Model Comparison}
+    \begin{enumerate}
+        \item \textit{Research}
+        \begin{enumerate}
+            \item Develop a solution for change-based model comparison. (15 days)
+            \item Develop an implementation of the solution. (15 days)
+            \item Evaluate the solution. (10 days)
+        \end{enumerate}
+    \end{enumerate}
+    \item \textbf{Chapter 7: Change-based Model Merging}
+    \begin{enumerate}
+        \item \textit{Research}
+        \begin{enumerate}
+            \item Develop a solution for change-based model merging. (15 days)
+            \item Develop an implementation of the solution. (15 days)
+            \item Evaluate the solution. (10 days)
+        \end{enumerate}
+        \item \textit{Publication}
+        \begin{enumerate}
+            \item Write a paper for chapters 6 and 7. (20 days)
+        \end{enumerate}
+        \item \textit{Writing Up}
+        \begin{enumerate}
+            \item Transfer the related paper to the thesis report. (5 days)
+        \end{enumerate}
+    \end{enumerate}
+    \item \textbf{Chapter 8: Change-based Model Compression}
+    \begin{enumerate}
+        \item \textit{Research}
+        \begin{enumerate}
+            \item Develop a solution for change-based model compression. (5 days)
+            \item Develop an implementation of the solution. (5 days)
+            \item Evaluate the solution. (5 days)
+        \end{enumerate}
+        \item \textit{Publication}
+        \begin{enumerate}
+            \item Write a paper for this chapter. (15 days)
+        \end{enumerate}
+        \item \textit{Writing Up}
+        \begin{enumerate}
+            \item Transfer the related paper to the thesis report. (5 days)
+        \end{enumerate}
+    \end{enumerate}
+    \item \textbf{Chapter 9: Conclusions and Future Work}
+    \begin{enumerate}
+        \item \textit{Writing Up}
+        \begin{enumerate}
+            \item Write conclusions and future works. (5 days)
+        \end{enumerate}
+    \end{enumerate}
 \end{enumerate}
 
-\chapter{Plan}
-\label{sec:plan}
-
-\section{Chapter 1: Introduction}
-\label{sec:chapter_1_introduction}
+\begin{landscape}
 
 \begin{table}[h]
 \centering
-\caption{The Time Table for the Chapter 1: Introduction.}
-\label{table:chapter_1_introduction_time}
-\begin{tabular}{ c c c }
-    \hline 
-    \textbf{\thead{Task}} & \textbf{\thead{Completed}} & \textbf{\thead{Time}} \\
-    \hline 
-    \makecell[l]{\textbf{Research}} & & \\
-    \makecell[l]{\quad Background} & Yes &  \\
-    \makecell[l]{\quad Research Questions} & Yes &  \\
-    \makecell[l]{\quad Research Objectives} & Yes &  \\
-    \makecell[l]{\quad Research Outputs} & Yes &  \\
-    \makecell[l]{\quad Research Scope} & Yes &  \\
-    \hline
-    \makecell[l]{\textbf{Publication}} &  &  \\
-    \hline
-    \makecell[l]{\textbf{Writing-up}} &  &   \\
-    \makecell[l]{\quad Background} & No & 1/5 day \\
-    \makecell[l]{\quad Research Questions} & No & 1/5 day \\
-    \makecell[l]{\quad Research Objectives} & No & 1/5 day \\
-    \makecell[l]{\quad Research Outputs} & No & 1/5 day \\
-    \makecell[l]{\quad Research Scope} & No & 1/5 day \\
-    \hline
-\end{tabular}
-\end{table}
-
-\section{Chapter 2: Literature Review}
-\label{sec:chapter_2_literature_review}
-\begin{table}[h]
+\caption{The time table for the remaining tasks of this research. One week consists of 5 working days.}
+\label{table:timetable}
 \centering
-\caption{The Time Table for the Chapter 2: Literature Review.}
-\label{table:chapter_2_literature_review_time}
-\begin{tabular}{ c c c }
-    \hline 
-    \textbf{\thead{Task}} & \textbf{\thead{Completed}} & \textbf{\thead{Time}} \\
-    \hline 
-    \makecell[l]{\textbf{Research}} & & \\
-    \makecell[l]{\quad Background} & Yes &  \\
-    \makecell[l]{\quad Research Questions} & Yes &  \\
-    \makecell[l]{\quad Research Objectives} & Yes &  \\
-    \makecell[l]{\quad Research Outputs} & Yes &  \\
-    \makecell[l]{\quad Research Scope} & Yes &  \\
-    \hline
-    \makecell[l]{\textbf{Publication}} &  &  \\
-    \hline
-    \makecell[l]{\textbf{Writing-up}} &  &   \\
-    \makecell[l]{\quad Background} & No & 1/5 day \\
-    \makecell[l]{\quad Research Questions} & No & 1/5 day \\
-    \makecell[l]{\quad Research Objectives} & No & 1/5 day \\
-    \makecell[l]{\quad Research Outputs} & No & 1/5 day \\
-    \makecell[l]{\quad Research Scope} & No & 1/5 day \\
-    \hline
-\end{tabular}
+\includegraphics[width=0.86\linewidth]{images/timetable}
+\label{fig:timetable}
 \end{table}
+\end{landscape}
 
-
-\section{Chapter 3: Change-based Persistence}
-\label{sec:chapter_3_Change-based Persistence}
-
-\section{Chapter 4: Optimised Loading of Change-based Persistence}
-\label{sec:chapter_4_optimised_loading_plan}
-
-\section{Chapter 5: Hybrid Model Persistence}
-\label{sec:chapter_5_hybrid_model_persistence_plan}
-
-\section{Chapter 6: Change-based Model Comparison}
-\label{sec:chapter_6_change_based_model_comparison_plan}
-
-\section{Chapter 7: Change-based Model Merging}
-\label{sec:chapter_7_change_based_model_merging_plan}
-
-\section{Chapter 8: Change-based Model Compression}
-\label{sec:chapter_8_change_based_model_compression_plan}
-
-\section{Chapter 9: Conclusions and Future Work}
-\label{sec:chapter_9_conclusions_plan}
-
-
-%For each proposed chapter of your thesis, give a bullet summary of outstanding tasks for (a) research and (b) writing up; for each bullet state the estimated time required.
-%Provide a diagrammatic timetable that shows each task, and any publication proposals.  
-%Your timetable should match your time estimates
-%If you cannot create a reasonable plan for completion within the normal 3-year (fulltime) enrolment, and your work cannot be scoped down to fit, you need to be very clear why you need to use time in the permitted overrun year.
 
 
 \chapter{Publications}
 \label{ch:publications}
-Three papers have been written. The first paper \cite{yohannis2017turning} has been presented in the FlexMDE 2017 workshop, the second paper has been accepted and will be presented in the ECMFA 2018 conference, and the third one has been submitted to ASE 2018 and currently under review.
+Three papers have been written. The first paper \cite{DBLP:conf/models/YohannisKP17} has been presented in the FlexMDE 2017 workshop, the second paper \cite{yohannis2018towards} has been accepted and will be presented at the ECMFA 2018 conference, and the third paper \cite{yohannis2018hybrid} has been submitted to ASE 2018 and currently under review.
 \begin{enumerate}
-\item A. Yohannis, F. Polack, and D. Kolovos, ``Turning Models iInside Out," in Proceedings of the 3rd Workshop on Flexible Model Driven Engineering co-located with ACM IEEE 20th International Conference on Model Driven Engineering Languages and Systems (MoDELS 2017), 2017.
-\item  A. Yohannis, H. Hoyos Rodriguez, F. Polack, and D. Kolovos, ``Towards Efficient Loading of Change-based Models," in Proceedings of the 14th European Conference on Modelling Foundations and Applications (ECMFA 2018) co-located with Software Technologies: Applications and Foundations (STAF 2018), 2018.
+\item A. Yohannis, F. Polack, and D. Kolovos, ``Turning Models Inside Out," in Proceedings of the 3rd Workshop on Flexible Model Driven Engineering co-located with ACM IEEE 20th International Conference on Model Driven Engineering Languages and Systems (MoDELS 2017), 2017.
+\item  A. Yohannis, H. Hoyos Rodriguez, F. Polack, and D. Kolovos, ``Towards Efficient Loading of Change-based Models," in Proceedings of the 14th European Conference on Modelling Foundations and Applications (ECMFA 2018) co-located with Software Technologies: Applications and Foundations (STAF 2018), 2018 (to be presented).
 \item  A. Yohannis, H. Hoyos Rodriguez, F. Polack, and D. Kolovos, ``Towards Hybrid Model Persistence," submitted to the 33rd IEEE/ACM International Conference on Automated Software Engineering (ASE 2018), 2018 (under review).
 \end{enumerate}
+
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
